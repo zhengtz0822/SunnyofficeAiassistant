@@ -1,5 +1,5 @@
 <template>
-  <div class="chat-container">
+  <div class="chat-area">
     <div class="chat-messages" ref="messagesContainerRef">
       <!-- 聊天消息流 - 将消息和对应的思考过程放在一起 -->
       <div v-for="(message, index) in messages" :key="index" class="message-group">
@@ -90,8 +90,33 @@
         @keydown.enter.ctrl.prevent="sendMessage"
       />
       <div class="input-actions">
-        <el-tooltip content="发送消息 (Ctrl+Enter)">
-          <el-button type="primary" :disabled="!userInput.trim() || isLoading" @click="sendMessage">
+        <el-tooltip content="启用/禁用思考过程" placement="top">
+          <el-button 
+            :type="enableThinking ? 'success' : 'default'" 
+            :icon="Cpu" 
+            circle
+            @click="toggleEnableThinking"
+            class="action-btn"
+          />
+        </el-tooltip>
+        
+        <el-tooltip content="清空对话" placement="top">
+          <el-button 
+            type="default" 
+            :icon="Delete" 
+            circle
+            @click="confirmClearChat"
+            class="action-btn"
+          />
+        </el-tooltip>
+        
+        <el-tooltip content="发送消息 (Ctrl+Enter)" placement="top">
+          <el-button 
+            type="primary" 
+            :disabled="!userInput.trim() || isLoading" 
+            @click="sendMessage"
+            class="send-btn"
+          >
             <el-icon><Position /></el-icon>
             发送
           </el-button>
@@ -104,29 +129,26 @@
 <script>
 import { ref, onMounted, computed, nextTick, watch } from 'vue';
 import { storeToRefs } from 'pinia';
-import { ElMessage } from 'element-plus';
-import { ArrowDown, UserFilled, Monitor, Position } from '@element-plus/icons-vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
+import { ArrowDown, UserFilled, Monitor, Position, Cpu, Delete } from '@element-plus/icons-vue';
 import { useChatStore } from '@/store/modules/chatStore';
 import { officeContextService } from '@/services/apiService';
 
 export default {
-  name: 'ChatInterface',
+  name: 'ChatArea',
   components: {
     ArrowDown,
     UserFilled,
     Monitor,
-    Position
-  },
-  props: {
-    enableThinking: {
-      type: Boolean,
-      default: true
-    }
+    Position,
+    Cpu,
+    Delete
   },
   emits: ['clear-messages'],
   setup(props, { emit }) {
     const messagesContainerRef = ref(null);
     const userInput = ref('');
+    const enableThinking = ref(true);
     const expandedThinking = ref({});
     
     // 使用Pinia聊天状态
@@ -200,6 +222,12 @@ export default {
       nextTick(() => {
         scrollToBottom();
       });
+      
+      // 从本地存储加载思考过程设置
+      const savedEnableThinking = localStorage.getItem('enableThinking');
+      if (savedEnableThinking !== null) {
+        enableThinking.value = savedEnableThinking === 'true';
+      }
     });
     
     // 获取Office上下文
@@ -258,10 +286,27 @@ export default {
       userInput.value = '';
       
       // 发送流式消息给AI
-      await chatStore.sendStreamMessage(message, props.enableThinking);
+      await chatStore.sendStreamMessage(message, enableThinking.value);
       
       // 保存聊天历史
       chatStore.saveChatHistory();
+    };
+    
+    // 确认清空对话
+    const confirmClearChat = () => {
+      ElMessageBox.confirm(
+        '确定要清空所有对话历史吗？此操作不可恢复。',
+        '清空对话',
+        {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        }
+      ).then(() => {
+        clearMessages();
+      }).catch(() => {
+        // 用户取消操作
+      });
     };
     
     // 清空消息
@@ -270,6 +315,14 @@ export default {
       // 清空思考过程显示状态映射
       expandedThinking.value = {};
       emit('clear-messages');
+    };
+    
+    // 切换是否启用思考过程
+    const toggleEnableThinking = () => {
+      enableThinking.value = !enableThinking.value;
+      // 保存到本地存储
+      localStorage.setItem('enableThinking', enableThinking.value.toString());
+      ElMessage.success(`思考过程已${enableThinking.value ? '启用' : '禁用'}`);
     };
     
     // 格式化消息内容（处理换行符等）
@@ -312,31 +365,37 @@ export default {
       streaming,
       thinkingContent,
       showThinking,
+      enableThinking,
       expandedThinking,
       messagesContainerRef,
       currentStreamingMessage,
       sendMessage,
       clearMessages,
+      confirmClearChat,
       formatMessage,
       formatTime,
       toggleThinking,
       toggleGlobalThinking,
+      toggleEnableThinking,
       error,
       UserFilled,
-      Monitor
+      Monitor,
+      Cpu,
+      Delete,
+      Position
     };
   }
 };
 </script>
 
 <style>
-.chat-container {
+.chat-area {
   display: flex;
   flex-direction: column;
   height: 100%;
-  max-width: 100%;
-  background-color: var(--el-bg-color);
-  border-radius: 8px;
+  background-color: white;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
 }
 
@@ -344,26 +403,17 @@ export default {
   flex: 1;
   overflow-y: auto;
   padding: 16px;
-  background-color: var(--el-bg-color-page, #f5f7fa);
+  background-color: #f8fafc;
   scrollbar-width: thin;
 }
 
-.chat-messages::-webkit-scrollbar {
-  width: 6px;
-}
-
-.chat-messages::-webkit-scrollbar-thumb {
-  background-color: rgba(0, 0, 0, 0.2);
-  border-radius: 3px;
-}
-
 .message-group {
-  margin-bottom: 24px;
-  animation: fadeIn 0.3s ease-in-out;
+  margin-bottom: 20px;
+  animation: fadeIn 0.3s ease-out;
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
@@ -377,26 +427,29 @@ export default {
   flex-shrink: 0;
 }
 
+.message-avatar .el-avatar {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
 .message-content {
-  background-color: #fff;
   padding: 12px 16px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   max-width: 85%;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   position: relative;
 }
 
 .user-message .message-content {
-  background: linear-gradient(135deg, #3E63DD, #5E63DD);
+  background: linear-gradient(135deg, #0ea5e9, #0284c7);
   color: white;
   margin-left: auto;
   margin-right: 0;
-  box-shadow: 0 2px 12px rgba(62, 99, 221, 0.2);
+  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.2);
 }
 
 .ai-message .message-content {
   background-color: white;
-  border: 1px solid #ebeef5;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .message-text {
@@ -412,28 +465,41 @@ export default {
 }
 
 .ai-message .message-time {
-  color: #909399;
+  color: #94a3b8;
 }
 
 .chat-input {
   padding: 16px;
-  background-color: var(--el-bg-color);
-  border-top: 1px solid var(--el-border-color-lighter);
+  background-color: white;
+  border-top: 1px solid #e2e8f0;
 }
 
 .input-actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
   margin-top: 12px;
-  gap: 10px;
+  gap: 8px;
+}
+
+.action-btn {
+  transition: all 0.2s ease;
+}
+
+.action-btn:hover {
+  transform: translateY(-1px);
+}
+
+.send-btn {
+  min-width: 80px;
 }
 
 /* 打字机效果 */
 .typing-indicator {
   display: inline-block;
-  width: 8px;
-  height: 16px;
-  background-color: #67c23a;
+  width: 6px;
+  height: 14px;
+  background-color: #10b981;
   margin-left: 2px;
   animation: blink 0.7s infinite;
   vertical-align: middle;
@@ -450,17 +516,17 @@ export default {
 
 /* 思考过程样式 - 独立区块但与消息关联 */
 .thinking-block {
-  background-color: #f8f9fa;
-  border-radius: 8px;
+  background-color: #f8fafc;
+  border-radius: var(--radius-md);
   margin: 0 0 0 48px; /* 左侧与头像对齐 */
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  border-left: 4px solid #909399;
+  border-left: 3px solid #94a3b8;
   overflow: hidden;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
 }
 
 .thinking-block-active {
-  border-left-color: #67c23a;
+  border-left-color: #10b981;
 }
 
 .thinking-header {
@@ -468,18 +534,18 @@ export default {
   align-items: center;
   cursor: pointer;
   padding: 10px 14px;
-  background-color: #edf0f2;
+  background-color: #f1f5f9;
   transition: background-color 0.2s;
 }
 
 .thinking-header:hover {
-  background-color: #e5e9ec;
+  background-color: #e2e8f0;
 }
 
 .thinking-header .el-icon {
   margin-right: 8px;
   transition: transform 0.3s;
-  color: #606266;
+  color: #64748b;
 }
 
 .thinking-header .is-rotate {
@@ -489,11 +555,11 @@ export default {
 .thinking-status {
   font-size: 14px;
   font-weight: 500;
-  color: #606266;
+  color: #64748b;
 }
 
 .thinking-status-active {
-  color: #67c23a;
+  color: #10b981;
   display: flex;
   align-items: center;
 }
@@ -501,7 +567,7 @@ export default {
 .thinking-dot {
   width: 8px;
   height: 8px;
-  background-color: #67c23a;
+  background-color: #10b981;
   border-radius: 50%;
   margin-right: 6px;
   animation: pulse 1.5s infinite;
@@ -509,14 +575,14 @@ export default {
 
 .thinking-time {
   font-size: 12px;
-  color: #909399;
+  color: #94a3b8;
   margin-left: 8px;
 }
 
 .thinking-content {
   padding: 14px;
-  background-color: #fff;
-  border-top: 1px solid #ebeef5;
+  background-color: white;
+  border-top: 1px solid #e2e8f0;
   font-size: 13px;
   max-height: 300px;
   overflow-y: auto;
@@ -526,8 +592,9 @@ export default {
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
-  font-family: monospace;
+  font-family: 'Consolas', 'Monaco', monospace;
   line-height: 1.6;
+  color: #475569;
 }
 
 @keyframes pulse {
@@ -538,13 +605,14 @@ export default {
 
 /* 错误消息样式 */
 .error-message {
-  color: #f56c6c;
-  margin-top: 8px;
+  color: #ef4444;
+  margin: 12px 0;
   font-size: 14px;
   text-align: center;
-  background-color: #fef0f0;
+  background-color: #fee2e2;
   padding: 12px 16px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(245, 108, 108, 0.1);
+  border-radius: var(--radius-md);
+  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.1);
+  animation: fadeIn 0.3s ease;
 }
 </style>

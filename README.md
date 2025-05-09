@@ -54,13 +54,13 @@ Office AI Assistant 是一个基于 AI 的 Office 插件，支持 Word 和 Excel
 1. 安装 Node.js (推荐 v14 或更高版本)
 2. 安装依赖：
 
-```bash
+\`\`\`bash
 npm install
-```
+\`\`\`
 
 ### 开发命令
 
-```bash
+\`\`\`bash
 # 启动开发服务器
 npm run dev
 
@@ -69,16 +69,16 @@ npm run build
 
 # 构建 Office 插件包
 npm run package
-```
+\`\`\`
 
 ### 调试说明
 
 1. 在 Office 开发人员模式下加载插件进行调试
 2. 执行以下命令将插件清单添加到 Office 应用程序中:
 
-```bash
+\`\`\`bash
 npx office-addin-debugging start manifest.xml
-```
+\`\`\`
 
 ## 配置说明
 
@@ -116,6 +116,6 @@ npx office-addin-debugging start manifest.xml
 ## 许可说明
 
 本项目采用 MIT 许可证
-```
+\`\`\`
 
 </rewritten_file>

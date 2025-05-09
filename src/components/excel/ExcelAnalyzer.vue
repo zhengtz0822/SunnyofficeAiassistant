@@ -4,195 +4,205 @@
     
     <el-tabs v-model="activeTab" class="excel-tabs">
       <el-tab-pane label="数据分析" name="dataAnalysis">
-        <el-form>
-          <el-form-item label="当前选中区域">
-            <el-tag v-if="currentSelection">{{ currentSelection }}</el-tag>
-            <el-tag v-else type="info">未选择数据区域</el-tag>
-            <el-button size="small" @click="refreshSelection" :loading="isRefreshing">
-              <el-icon><Refresh /></el-icon> 刷新
-            </el-button>
-          </el-form-item>
+        <div class="tab-content-scroll">
+          <el-form>
+            <el-form-item label="当前选中区域">
+              <el-tag v-if="currentSelection">{{ currentSelection }}</el-tag>
+              <el-tag v-else type="info">未选择数据区域</el-tag>
+              <el-button size="small" @click="refreshSelection" :loading="isRefreshing" class="material-button">
+                <el-icon><Refresh /></el-icon> 刷新
+              </el-button>
+            </el-form-item>
+            
+            <el-form-item label="分析类型">
+              <el-select v-model="analysisType" placeholder="请选择分析类型" class="material-select">
+                <el-option label="描述性统计" value="descriptive"></el-option>
+                <el-option label="相关性分析" value="correlation"></el-option>
+                <el-option label="趋势分析" value="trend"></el-option>
+                <el-option label="异常值检测" value="outliers"></el-option>
+              </el-select>
+            </el-form-item>
+            
+            <el-form-item>
+              <el-button type="primary" @click="runAnalysis" :disabled="!currentSelection || isAnalyzing" class="material-button">
+                运行分析
+              </el-button>
+            </el-form-item>
+          </el-form>
           
-          <el-form-item label="分析类型">
-            <el-select v-model="analysisType" placeholder="请选择分析类型">
-              <el-option label="描述性统计" value="descriptive"></el-option>
-              <el-option label="相关性分析" value="correlation"></el-option>
-              <el-option label="趋势分析" value="trend"></el-option>
-              <el-option label="异常值检测" value="outliers"></el-option>
-            </el-select>
-          </el-form-item>
+          <div v-if="isAnalyzing" class="analysis-loading">
+            <el-skeleton :rows="6" animated />
+          </div>
           
-          <el-form-item>
-            <el-button type="primary" @click="runAnalysis" :disabled="!currentSelection || isAnalyzing">
-              运行分析
-            </el-button>
-          </el-form-item>
-        </el-form>
-        
-        <div v-if="isAnalyzing" class="analysis-loading">
-          <el-skeleton :rows="6" animated />
-        </div>
-        
-        <div v-if="analysisResult && !isAnalyzing" class="analysis-result">
-          <h3>分析结果</h3>
-          <el-descriptions border>
-            <el-descriptions-item v-for="(value, key) in analysisResult.summary" 
-                               :key="key" :label="key">
-              {{ value }}
-            </el-descriptions-item>
-          </el-descriptions>
-          
-          <div v-if="analysisResult.insights && analysisResult.insights.length" class="insights-section">
-            <h4>数据洞察</h4>
-            <el-card v-for="(insight, index) in analysisResult.insights" 
-                   :key="index" class="insight-card">
-              <template #header>
-                <div class="insight-header">
-                  <span>{{ insight.title }}</span>
-                  <el-tag :type="insight.type">{{ insight.confidence }}</el-tag>
+          <div v-if="analysisResult && !isAnalyzing" class="analysis-result">
+            <h3>分析结果</h3>
+            <el-descriptions border>
+              <el-descriptions-item v-for="(value, key) in analysisResult.summary" 
+                                 :key="key" :label="key">
+                {{ value }}
+              </el-descriptions-item>
+            </el-descriptions>
+            
+            <div v-if="analysisResult.insights && analysisResult.insights.length" class="insights-section">
+              <h4>数据洞察</h4>
+              <el-card v-for="(insight, index) in analysisResult.insights" 
+                     :key="index" class="insight-card">
+                <template #header>
+                  <div class="insight-header">
+                    <span>{{ insight.title }}</span>
+                    <el-tag :type="insight.type">{{ insight.confidence }}</el-tag>
+                  </div>
+                </template>
+                <div>{{ insight.description }}</div>
+                <div v-if="insight.recommendation" class="recommendation">
+                  <strong>建议：</strong> {{ insight.recommendation }}
+                  <el-button size="small" 
+                           v-if="insight.action" 
+                           @click="executeAction(insight.action)"
+                           class="material-button">
+                    应用
+                  </el-button>
                 </div>
-              </template>
-              <div>{{ insight.description }}</div>
-              <div v-if="insight.recommendation" class="recommendation">
-                <strong>建议：</strong> {{ insight.recommendation }}
-                <el-button size="small" 
-                         v-if="insight.action" 
-                         @click="executeAction(insight.action)">
-                  应用
-                </el-button>
-              </div>
-            </el-card>
+              </el-card>
+            </div>
           </div>
         </div>
       </el-tab-pane>
       
       <el-tab-pane label="图表推荐" name="chartRecommendation">
-        <div v-if="!currentSelection" class="no-selection-message">
-          <el-alert
-            title="未选择数据"
-            type="info"
-            description="请在Excel中选择一个数据区域以获取图表推荐"
-            show-icon
-            :closable="false"
-          />
-        </div>
-        
-        <div v-else>
-          <p>基于您选择的 <el-tag>{{ currentSelection }}</el-tag> 区域数据:</p>
+        <div class="tab-content-scroll">
+          <div v-if="!currentSelection" class="no-selection-message">
+            <el-alert
+              title="未选择数据"
+              type="info"
+              description="请在Excel中选择一个数据区域以获取图表推荐"
+              show-icon
+              :closable="false"
+            />
+          </div>
           
-          <div class="chart-recommendations">
-            <el-card v-for="(chart, index) in chartRecommendations" :key="index" class="chart-card">
-              <template #header>
-                <div class="chart-header">
-                  <h4>{{ chart.title }}</h4>
-                  <el-tag>{{ chart.type }}</el-tag>
+          <div v-else>
+            <p>基于您选择的 <el-tag>{{ currentSelection }}</el-tag> 区域数据:</p>
+            
+            <div class="chart-recommendations">
+              <el-card v-for="(chart, index) in chartRecommendations" :key="index" class="chart-card">
+                <template #header>
+                  <div class="chart-header">
+                    <h4>{{ chart.title }}</h4>
+                    <el-tag>{{ chart.type }}</el-tag>
+                  </div>
+                </template>
+                <div class="chart-description">
+                  {{ chart.description }}
                 </div>
-              </template>
-              <div class="chart-description">
-                {{ chart.description }}
-              </div>
-              <div class="chart-image-placeholder">
-                <!-- 这里实际应用中应该显示图表预览 -->
-                <el-image 
-                  style="width: 100%; height: 150px"
-                  :src="chart.previewUrl || 'https://via.placeholder.com/300x150?text=Chart+Preview'"
-                  fit="contain"
-                />
-              </div>
-              <div class="chart-actions">
-                <el-button type="primary" size="small" @click="createChart(chart)">
-                  创建图表
-                </el-button>
-              </div>
-            </el-card>
+                <div class="chart-image-placeholder">
+                  <!-- 这里实际应用中应该显示图表预览 -->
+                  <el-image 
+                    style="width: 100%; height: 150px"
+                    :src="chart.previewUrl || 'https://via.placeholder.com/300x150?text=Chart+Preview'"
+                    fit="contain"
+                  />
+                </div>
+                <div class="chart-actions">
+                  <el-button type="primary" size="small" @click="createChart(chart)" class="material-button">
+                    创建图表
+                  </el-button>
+                </div>
+              </el-card>
+            </div>
           </div>
         </div>
       </el-tab-pane>
       
       <el-tab-pane label="公式助手" name="formulaAssistant">
-        <el-form>
-          <el-form-item label="公式需求描述">
-            <el-input 
-              v-model="formulaQuery" 
-              type="textarea" 
-              :rows="3" 
-              placeholder="用自然语言描述您需要的Excel公式，例如：'计算A列中所有大于100的值的平均数'"
-            />
-          </el-form-item>
+        <div class="tab-content-scroll">
+          <el-form>
+            <el-form-item label="公式需求描述">
+              <el-input 
+                v-model="formulaQuery" 
+                type="textarea" 
+                :rows="3" 
+                placeholder="用自然语言描述您需要的Excel公式，例如：'计算A列中所有大于100的值的平均数'"
+                class="material-input"
+              />
+            </el-form-item>
+            
+            <el-form-item>
+              <el-button type="primary" @click="generateFormula" :loading="isGeneratingFormula" class="material-button">
+                生成公式
+              </el-button>
+            </el-form-item>
+          </el-form>
           
-          <el-form-item>
-            <el-button type="primary" @click="generateFormula" :loading="isGeneratingFormula">
-              生成公式
-            </el-button>
-          </el-form-item>
-        </el-form>
-        
-        <div v-if="formulaResult" class="formula-result">
-          <el-alert
-            title="推荐公式"
-            type="success"
-            :closable="false"
-          />
-          <div class="formula-code">
-            <pre>{{ formulaResult.formula }}</pre>
-          </div>
-          <div class="formula-explanation">
-            <p><strong>公式说明：</strong></p>
-            <p>{{ formulaResult.explanation }}</p>
-          </div>
-          <div class="formula-actions">
-            <el-button size="small" @click="applyFormula(formulaResult.formula)">
-              应用公式
-            </el-button>
-            <el-button size="small" @click="copyFormula(formulaResult.formula)">
-              复制公式
-            </el-button>
+          <div v-if="formulaResult" class="formula-result">
+            <el-alert
+              title="推荐公式"
+              type="success"
+              :closable="false"
+            />
+            <div class="formula-code">
+              <pre>{{ formulaResult.formula }}</pre>
+            </div>
+            <div class="formula-explanation">
+              <p><strong>公式说明：</strong></p>
+              <p>{{ formulaResult.explanation }}</p>
+            </div>
+            <div class="formula-actions">
+              <el-button size="small" @click="applyFormula(formulaResult.formula)" class="material-button">
+                应用公式
+              </el-button>
+              <el-button size="small" @click="copyFormula(formulaResult.formula)" class="material-button">
+                复制公式
+              </el-button>
+            </div>
           </div>
         </div>
       </el-tab-pane>
       
       <el-tab-pane label="工作表分析" name="sheetAnalysis">
-        <el-button @click="analyzeWorkbook" :loading="isAnalyzingWorkbook">
-          分析工作簿结构
-        </el-button>
-        
-        <div v-if="workbookAnalysis" class="workbook-analysis">
-          <h3>工作簿结构分析</h3>
+        <div class="tab-content-scroll">
+          <el-button @click="analyzeWorkbook" :loading="isAnalyzingWorkbook" class="material-button">
+            分析工作簿结构
+          </el-button>
           
-          <div class="workbook-stats">
-            <el-statistic title="工作表数量" :value="workbookAnalysis.sheetCount" />
-            <el-statistic title="数据表数量" :value="workbookAnalysis.tableCount || 0" />
-            <el-statistic title="图表数量" :value="workbookAnalysis.chartCount || 0" />
-          </div>
-          
-          <h4>工作表列表</h4>
-          <el-table :data="workbookAnalysis.sheets" style="width: 100%">
-            <el-table-column prop="name" label="工作表名称" />
-            <el-table-column prop="dataSize.rows" label="行数" />
-            <el-table-column prop="dataSize.columns" label="列数" />
-            <el-table-column prop="status" label="状态">
-              <template #default="scope">
-                <el-tag :type="scope.row.isHidden ? 'info' : 'success'">
-                  {{ scope.row.isHidden ? '隐藏' : '可见' }}
-                </el-tag>
-              </template>
-            </el-table-column>
-          </el-table>
-          
-          <div v-if="workbookAnalysis.recommendations" class="workbook-recommendations">
-            <h4>优化建议</h4>
-            <el-collapse>
-              <el-collapse-item 
-                v-for="(rec, index) in workbookAnalysis.recommendations" 
-                :key="index"
-                :title="rec.title"
-              >
-                <p>{{ rec.description }}</p>
-                <el-button v-if="rec.action" size="small" @click="executeWorkbookAction(rec.action)">
-                  应用建议
-                </el-button>
-              </el-collapse-item>
-            </el-collapse>
+          <div v-if="workbookAnalysis" class="workbook-analysis">
+            <h3>工作簿结构分析</h3>
+            
+            <div class="workbook-stats">
+              <el-statistic title="工作表数量" :value="workbookAnalysis.sheetCount" />
+              <el-statistic title="数据表数量" :value="workbookAnalysis.tableCount || 0" />
+              <el-statistic title="图表数量" :value="workbookAnalysis.chartCount || 0" />
+            </div>
+            
+            <h4>工作表列表</h4>
+            <el-table :data="workbookAnalysis.sheets" style="width: 100%">
+              <el-table-column prop="name" label="工作表名称" />
+              <el-table-column prop="dataSize.rows" label="行数" />
+              <el-table-column prop="dataSize.columns" label="列数" />
+              <el-table-column prop="status" label="状态">
+                <template #default="scope">
+                  <el-tag :type="scope.row.isHidden ? 'info' : 'success'">
+                    {{ scope.row.isHidden ? '隐藏' : '可见' }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+            </el-table>
+            
+            <div v-if="workbookAnalysis.recommendations" class="workbook-recommendations">
+              <h4>优化建议</h4>
+              <el-collapse>
+                <el-collapse-item 
+                  v-for="(rec, index) in workbookAnalysis.recommendations" 
+                  :key="index"
+                  :title="rec.title"
+                >
+                  <p>{{ rec.description }}</p>
+                  <el-button v-if="rec.action" size="small" @click="executeWorkbookAction(rec.action)" class="material-button">
+                    应用建议
+                  </el-button>
+                </el-collapse-item>
+              </el-collapse>
+            </div>
           </div>
         </div>
       </el-tab-pane>
@@ -204,6 +214,9 @@
 import { ref, onMounted } from 'vue';
 import { Refresh } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
+
+// Declare Office and Excel if they are not available globally
+/* global Office, Excel */
 
 export default {
   name: 'ExcelAnalyzer',
@@ -636,40 +649,107 @@ export default {
 
 <style>
 .excel-analyzer {
-  padding: 10px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .module-title {
   margin-top: 0;
-  margin-bottom: 15px;
-  font-size: 18px;
-  color: #409EFF;
-  border-bottom: 1px solid #EBEEF5;
-  padding-bottom: 10px;
+  margin-bottom: 16px;
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--md-primary-main);
+  border-bottom: 1px solid var(--md-divider);
+  padding-bottom: 12px;
 }
 
 .excel-tabs {
-  margin-top: 15px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.excel-tabs .el-tabs__content {
+  flex: 1;
+  overflow: hidden;
+  padding: 0;
+}
+
+.excel-tabs .el-tabs__nav-wrap::after {
+  background-color: var(--md-divider);
+}
+
+.excel-tabs .el-tabs__item {
+  font-weight: 500;
+  color: var(--md-text-secondary);
+  transition: color var(--md-transition-duration-short) var(--md-transition-easing-standard);
+}
+
+.excel-tabs .el-tabs__item.is-active {
+  color: var(--md-primary-main);
+}
+
+.excel-tabs .el-tabs__active-bar {
+  background-color: var(--md-primary-main);
+}
+
+.tab-content-scroll {
+  height: 100%;
+  overflow-y: auto;
+  padding: 16px;
+  scrollbar-width: thin;
+}
+
+.tab-content-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.tab-content-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tab-content-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.tab-content-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.3);
 }
 
 .analysis-result {
-  margin-top: 20px;
-  border: 1px solid #EBEEF5;
-  border-radius: 4px;
-  padding: 15px;
-  background-color: #F9FAFC;
+  margin-top: 24px;
+  border: 1px solid var(--md-divider);
+  border-radius: var(--md-radius-md);
+  padding: 20px;
+  background-color: var(--md-background-paper);
+  box-shadow: var(--md-shadow-sm);
 }
 
 .analysis-loading {
-  margin-top: 20px;
+  margin-top: 24px;
 }
 
 .insights-section {
-  margin-top: 20px;
+  margin-top: 24px;
 }
 
 .insight-card {
-  margin-bottom: 10px;
+  margin-bottom: 16px;
+  border-radius: var(--md-radius-md);
+  overflow: hidden;
+  box-shadow: var(--md-shadow-sm);
+  transition: box-shadow var(--md-transition-duration-short) var(--md-transition-easing-standard), 
+              transform var(--md-transition-duration-short) var(--md-transition-easing-standard);
+}
+
+.insight-card:hover {
+  box-shadow: var(--md-shadow-md);
+  transform: translateY(-2px);
 }
 
 .insight-header {
@@ -679,21 +759,29 @@ export default {
 }
 
 .recommendation {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px dashed #EBEEF5;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--md-divider);
 }
 
 .chart-recommendations {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 15px;
-  margin-top: 15px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
 }
 
 .chart-card {
-  display: flex;
-  flex-direction: column;
+  border-radius: var(--md-radius-md);
+  overflow: hidden;
+  box-shadow: var(--md-shadow-sm);
+  transition: box-shadow var(--md-transition-duration-short) var(--md-transition-easing-standard), 
+              transform var(--md-transition-duration-short) var(--md-transition-easing-standard);
+}
+
+.chart-card:hover {
+  box-shadow: var(--md-shadow-md);
+  transform: translateY(-2px);
 }
 
 .chart-header {
@@ -704,55 +792,108 @@ export default {
 
 .chart-header h4 {
   margin: 0;
+  font-weight: 500;
 }
 
 .chart-description {
-  margin-bottom: 10px;
+  margin-bottom: 12px;
+  color: var(--md-text-secondary);
+}
+
+.chart-image-placeholder {
+  margin-bottom: 12px;
+  border-radius: var(--md-radius-sm);
+  overflow: hidden;
+  box-shadow: var(--md-shadow-sm);
 }
 
 .chart-actions {
-  margin-top: 10px;
   display: flex;
   justify-content: flex-end;
 }
 
 .formula-result {
-  margin-top: 20px;
-  border: 1px solid #EBEEF5;
-  border-radius: 4px;
-  padding: 15px;
-  background-color: #F9FAFC;
+  margin-top: 24px;
+  border-radius: var(--md-radius-md);
+  overflow: hidden;
+  box-shadow: var(--md-shadow-sm);
 }
 
 .formula-code {
-  background-color: #F5F7FA;
-  padding: 10px;
-  border-radius: 4px;
-  margin: 10px 0;
+  background-color: var(--md-background-default);
+  padding: 16px;
+  border-radius: var(--md-radius-sm);
+  margin: 16px 0;
   font-family: monospace;
 }
 
+.formula-code pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.formula-explanation {
+  margin-bottom: 16px;
+}
+
 .formula-actions {
-  margin-top: 15px;
+  margin-top: 16px;
   display: flex;
-  gap: 10px;
+  gap: 12px;
 }
 
 .workbook-analysis {
-  margin-top: 20px;
+  margin-top: 24px;
 }
 
 .workbook-stats {
   display: flex;
   justify-content: space-around;
-  margin: 20px 0;
+  margin: 24px 0;
 }
 
 .workbook-recommendations {
-  margin-top: 20px;
+  margin-top: 24px;
 }
 
 .no-selection-message {
-  margin: 20px 0;
+  margin: 24px 0;
 }
-</style> 
+
+/* Material Design 样式 */
+.material-button {
+  border-radius: var(--md-radius-sm);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  transition: background-color var(--md-transition-duration-short) var(--md-transition-easing-standard),
+              box-shadow var(--md-transition-duration-short) var(--md-transition-easing-standard),
+              transform var(--md-transition-duration-short) var(--md-transition-easing-standard);
+}
+
+.material-button:not(.is-disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: var(--md-shadow-md);
+}
+
+.material-button:not(.is-disabled):active {
+  transform: translateY(1px);
+}
+
+.material-select .el-input__wrapper,
+.material-input .el-input__wrapper {
+  border-radius: var(--md-radius-sm);
+  transition: box-shadow var(--md-transition-duration-short) var(--md-transition-easing-standard);
+}
+
+.material-select .el-input__wrapper:hover,
+.material-input .el-input__wrapper:hover {
+  box-shadow: 0 0 0 1px var(--md-primary-light) inset;
+}
+
+.material-select .el-input__wrapper.is-focus,
+.material-input .el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 2px var(--md-primary-main) inset;
+}
+</style>

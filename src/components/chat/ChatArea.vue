@@ -50,8 +50,10 @@
           <div class="message-content">
             <!-- 流式消息状态 -->
             <div v-if="streaming && currentStreamingMessage" class="message-text">
-              <div v-html="formatMessage(currentStreamingMessage.content || '')"></div>
-              <span class="typing-indicator"></span>
+              <div class="typewriter-text">
+                <span v-html="formatMessage(currentStreamingMessage.content || '')"></span>
+                <span class="cursor"></span>
+              </div>
             </div>
             <div v-else class="message-text">
               <el-skeleton :rows="2" animated />
@@ -69,7 +71,10 @@
             </span>
           </div>
           <div v-show="showThinking" class="thinking-content">
-            <pre>{{ thinkingContent }}</pre>
+            <div class="typewriter-text">
+              <pre>{{ thinkingContent }}</pre>
+              <span class="cursor"></span>
+            </div>
           </div>
         </div>
       </div>
@@ -185,6 +190,13 @@ export default {
           scrollToBottom();
         });
       }
+    });
+    
+    // 监听当前流式消息内容变化
+    watch(() => currentStreamingMessage.value?.content, () => {
+      nextTick(() => {
+        scrollToBottom();
+      });
     });
     
     // 监听错误变化
@@ -394,8 +406,8 @@ export default {
   flex-direction: column;
   height: 100%;
   background-color: white;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  border-radius: var(--md-radius-lg);
+  box-shadow: var(--md-shadow-sm);
   overflow: hidden;
 }
 
@@ -433,7 +445,7 @@ export default {
 
 .message-content {
   padding: 12px 16px;
-  border-radius: var(--radius-lg);
+  border-radius: var(--md-radius-lg);
   max-width: 85%;
   position: relative;
 }
@@ -495,29 +507,30 @@ export default {
 }
 
 /* 打字机效果 */
-.typing-indicator {
+.typewriter-text {
   display: inline-block;
-  width: 6px;
-  height: 14px;
-  background-color: #10b981;
+  position: relative;
+}
+
+.cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.2em;
+  background-color: currentColor;
   margin-left: 2px;
-  animation: blink 0.7s infinite;
   vertical-align: middle;
-  border-radius: 1px;
+  animation: blink 0.7s infinite;
 }
 
 @keyframes blink {
-  0% { opacity: 1; }
-  40% { opacity: 0.8; }
+  0%, 100% { opacity: 1; }
   50% { opacity: 0; }
-  90% { opacity: 0.8; }
-  100% { opacity: 1; }
 }
 
 /* 思考过程样式 - 独立区块但与消息关联 */
 .thinking-block {
   background-color: #f8fafc;
-  border-radius: var(--radius-md);
+  border-radius: var(--md-radius-md);
   margin: 0 0 0 48px; /* 左侧与头像对齐 */
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   border-left: 3px solid #94a3b8;
@@ -611,7 +624,7 @@ export default {
   text-align: center;
   background-color: #fee2e2;
   padding: 12px 16px;
-  border-radius: var(--radius-md);
+  border-radius: var(--md-radius-md);
   box-shadow: 0 2px 4px rgba(239, 68, 68, 0.1);
   animation: fadeIn 0.3s ease;
 }

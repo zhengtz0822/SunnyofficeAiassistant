@@ -414,14 +414,14 @@ class AIModelService {
           role: "system",
           content: `请按照以下格式输出你的思考过程和回复内容（务必区分）：
 
-1. 首先，输出你的详细思考过程，用<thinking>标签包裹:
+1. 首先，输出你的详细思考过程，用<Thinking>标签包裹:
 
-<thinking>
+<Thinking>
 我的思考过程：
 - 首先，我理解这个问题是关于...
 - 然后，我分析了以下几点...
 - 最后，结合上下文，我得出了这样的结论...
-</thinking>
+</Thinking>
 
 2. 然后，输出你的实际回复内容（不需要标签，直接输出）：
 
@@ -519,12 +519,12 @@ class AIModelService {
                 fullText += token
 
                 // 检测思考过程开始标签
-                if (fullText.includes("<thinking>") && !inThinkingBlock) {
+                if (fullText.includes("<Thinking>") && !inThinkingBlock) {
                   inThinkingBlock = true
                   console.log("检测到思考过程开始标签")
 
                   // 获取标签之前的内容（如果有）加入响应内容
-                  const parts = fullText.split("<thinking>")
+                  const parts = fullText.split("<Thinking>")
                   if (parts[0]) {
                     responseBuffer += parts[0]
                     if (onChunk) {
@@ -533,18 +533,18 @@ class AIModelService {
                   }
 
                   // 重置全文以去除已处理部分
-                  fullText = "<thinking>" + (parts[1] || "")
+                  fullText = "<Thinking>" + (parts[1] || "")
                   continue
                 }
 
                 // 检测思考过程结束标签
-                if (inThinkingBlock && fullText.includes("</thinking>")) {
+                if (inThinkingBlock && fullText.includes("</Thinking>")) {
                   inThinkingBlock = false
                   console.log("检测到思考过程结束标签")
 
                   // 提取思考内容并回调
-                  const parts = fullText.split("</thinking>")
-                  const thinkingPart = parts[0].replace("<thinking>", "")
+                  const parts = fullText.split("<Thinking>\n</Thinking>")
+                  const thinkingPart = parts[0].replace("<Thinking>", "")
                   thinkingBuffer += thinkingPart
 
                   if (onThinking) {
@@ -574,7 +574,9 @@ class AIModelService {
                 responseBuffer += token
                 finalContent = responseBuffer
 
+                // 添加一个小延迟，使打字机效果更明显
                 if (onChunk) {
+                  // 每个字符都触发回调，而不是等待一整块数据
                   onChunk(token, finalContent)
                 }
               }
@@ -590,8 +592,8 @@ class AIModelService {
         }
 
         // 确保思考过程完全收集
-        if (inThinkingBlock && fullText.includes("<thinking>")) {
-          const thinkingPart = fullText.replace("<thinking>", "")
+        if (inThinkingBlock && fullText.includes("<Thinking>")) {
+          const thinkingPart = fullText.replace("<Thinking>", "")
           thinkingBuffer += thinkingPart
 
           if (onThinking) {
@@ -665,6 +667,7 @@ class OfficeContextService {
     }
 
     try {
+      // @ts-ignore
       return await Excel.run(async (context) => {
         const range = context.workbook.getSelectedRange()
         range.load(["values", "address"])
@@ -691,6 +694,7 @@ class OfficeContextService {
     }
 
     try {
+      // @ts-ignore
       return await Word.run(async (context) => {
         const body = context.document.body
         body.load("text")

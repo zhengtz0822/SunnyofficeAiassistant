@@ -14,6 +14,7 @@ export const useChatStore = defineStore("chat", {
     currentStreamingIndex: -1, // 当前流式接收的消息索引
     thinkingContent: "", // 思考过程内容
     showThinking: false, // 是否显示思考过程
+    lastChunkTime: 0, // 最后一次接收数据块的时间
   }),
 
   getters: {
@@ -64,6 +65,7 @@ export const useChatStore = defineStore("chat", {
       this.thinkingContent = ""
       this.showThinking = false
       this.error = null
+      this.lastChunkTime = 0
     },
 
     /**
@@ -108,6 +110,8 @@ export const useChatStore = defineStore("chat", {
      */
     updateStreamingMessage(content) {
       if (this.currentStreamingIndex >= 0 && this.currentStreamingIndex < this.messages.length) {
+        // 记录当前时间，用于控制打字机效果的速度
+        this.lastChunkTime = Date.now()
         this.messages[this.currentStreamingIndex].content = content
       }
     },
@@ -117,6 +121,8 @@ export const useChatStore = defineStore("chat", {
      * @param {String} thinking - 思考过程内容
      */
     updateThinkingContent(thinking) {
+      // 记录当前时间，用于控制打字机效果的速度
+      this.lastChunkTime = Date.now()
       this.thinkingContent = thinking
 
       if (thinking && thinking.trim() !== "") {
@@ -159,6 +165,7 @@ export const useChatStore = defineStore("chat", {
         this.thinkingContent = ""
         this.showThinking = enableThinking // 确保根据启用状态设置思考过程显示
         this.error = null
+        this.lastChunkTime = Date.now() // 初始化最后一次接收数据块的时间
 
         // 跟踪预创建的响应消息索引
         let messageIndex = this.currentStreamingIndex
@@ -197,14 +204,37 @@ export const useChatStore = defineStore("chat", {
 
         // 处理接收到的数据块
         const handleChunk = (chunk, fullContent) => {
-          this.updateStreamingMessage(fullContent)
+          // 控制打字机效果的速度
+          const now = Date.now()
+          const timeSinceLastChunk = now - this.lastChunkTime
+
+          // 如果距离上次更新时间太短，可以添加一个小延迟
+          // 这样可以让打字机效果更加明显
+          if (timeSinceLastChunk < 20) {
+            setTimeout(() => {
+              this.updateStreamingMessage(fullContent)
+            }, 20 - timeSinceLastChunk)
+          } else {
+            this.updateStreamingMessage(fullContent)
+          }
         }
 
         // 处理思考过程
         const handleThinking = enableThinking
           ? (thinking) => {
-              this.updateThinkingContent(thinking)
-              this.toggleThinking(true) // 自动显示思考过程
+              // 控制打字机效果的速度
+              const now = Date.now()
+              const timeSinceLastChunk = now - this.lastChunkTime
+
+              if (timeSinceLastChunk < 20) {
+                setTimeout(() => {
+                  this.updateThinkingContent(thinking)
+                  this.toggleThinking(true) // 自动显示思考过程
+                }, 20 - timeSinceLastChunk)
+              } else {
+                this.updateThinkingContent(thinking)
+                this.toggleThinking(true) // 自动显示思考过程
+              }
             }
           : null
 
